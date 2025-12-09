@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Doby el Goloso — Prototype</title>
+<style>
+  :root{ --bg:#f7f7fb; --accent:#2d7adb; --muted:#666;}
+  body{font-family:Inter, system-ui, Arial; margin:0; background:var(--bg); display:flex; height:100vh; align-items:stretch;}
+  #left{flex:1; display:flex; flex-direction:column; padding:18px; gap:12px; box-sizing:border-box;}
+  #canvasWrap{background:white; border-radius:12px; padding:8px; box-shadow:0 6px 18px rgba(20,30,60,0.06); flex:1; display:flex; align-items:center; justify-content:center;}
+  canvas{background: linear-gradient(#bde1ff 0%, #eaf6ff 60%); border-radius:10px;}
+  #controls{width:340px; padding:18px; box-sizing:border-box; background:white; border-radius:12px; box-shadow:0 6px 18px rgba(20,30,60,0.06); margin:18px;}
+  .row{display:flex; gap:8px; align-items:center;}
+  label{font-size:13px; color:var(--muted);}
+  input[type=range]{width:100%;}
+  select, button{font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid #ddd; background:white;}
+  button{cursor:pointer; background:var(--accent); color:white; border:none;}
+  .bar{height:12px; background:#eee; border-radius:8px; overflow:hidden;}
+  .bar > i{display:block; height:100%; background:linear-gradient(90deg,#ffcc4d,#ff8a4d); width:50%;}
+  .statWrap{display:flex; gap:10px; align-items:center; justify-content:space-between;}
+  .small{font-size:12px; color:#444;}
+  table{width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;}
+  th,td{padding:6px 8px; text-align:left; border-bottom:1px solid #f0f0f0;}
+  .center{text-align:center;}
+  footer{font-size:12px; color:#888; margin-top:12px;}
+</style>
+</head>
+<body>
+  <div id="left">
+    <div id="canvasWrap">
+      <canvas id="game" width="900" height="520"></canvas>
+    </div>
+    <div style="display:flex; gap:12px;">
+      <div style="flex:1; padding:12px; background:white; border-radius:10px;">
+        <div class="statWrap"><div class="small">Felicidad</div><div class="small" id="happyNum">0 / 100</div></div>
+        <div class="bar" style="margin-top:6px;"><i id="happyBar" style="width:0%"></i></div>
+        <div style="height:8px"></div>
+        <div class="statWrap"><div class="small">Hambre</div><div class="small" id="hungryNum">100 / 100</div></div>
+        <div class="bar" style="margin-top:6px;"><i id="hungryBar" style="width:100%"></i></div>
+      </div>
+      <div style="width:340px; padding:12px; background:white; border-radius:10px;">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <div style="flex:1">
+            <label>Ángulo: <span id="angleVal">45°</span></label>
+            <input id="angle" type="range" min="5" max="85" value="45">
+          </div>
+          <div style="width:14px"></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Potencia: <span id="powerVal">60</span></label>
+          <input id="power" type="range" min="10" max="120" value="60">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Objeto</label>
+          <select id="objectSelect">
+            <option value="peluquin">Peluquín Ondulado</option>
+            <option value="calcetin">Calcetín Banana</option>
+            <option value="sandalia">Sandalia con Pez</option>
+            <option value="gorra">Gorra Minúscula</option>
+            <option value="salchicha">Salchicha Chirriante</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="launchBtn">Lanzar</button>
+          <button id="resetBtn" style="background:#999">Reiniciar</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; align-items:flex-start;">
+      <div style="flex:1; padding:12px; background:white; border-radius:10px;">
+        <div style="font-weight:600; margin-bottom:6px;">Objetos</div>
+        <table>
+          <thead><tr><th>Objeto</th><th>VP</th><th>VS</th><th>Efecto</th></tr></thead>
+          <tbody>
+            <tr><td>Peluquín Ondulado</td><td>+15</td><td>+5</td><td>Salto mortal</td></tr>
+            <tr><td>Calcetín Banana</td><td>+10</td><td>+10</td><td>Burbujea</td></tr>
+            <tr><td>Sandalia con Pez</td><td>+20</td><td>+15</td><td>Desbloquea ladrido</td></tr>
+            <tr><td>Gorra Minúscula</td><td>+5</td><td>+0</td><td>Próx. lanzamiento x2</td></tr>
+            <tr><td>Salchicha Chirriante</td><td>+30</td><td>+20</td><td>Llena Hambre</td></tr>
+          </tbody>
+        </table>
+        <footer>Victoria: Llegar a 100 VP. Derrota: Hambre a 0.</footer>
+      </div>
+
+      <div id="controls" aria-live="polite">
+        <div style="font-weight:600; margin-bottom:8px;">Mensajes</div>
+        <div id="log" style="height:150px; overflow:auto; border-radius:8px; padding:8px; background:#fbfbfe; border:1px solid #f0f4ff;"></div>
+        <div style="height:12px"></div>
+        <div style="font-size:13px; color:#666;">Consejo: ajusta ángulo y potencia. Si aciertas en la boca, obtienes VP y VS según el objeto.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --- Juego: Doby el Goloso (Prototype) --- */
+/* Config */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+/* Salida / UI */
+const angleInput = document.getElementById('angle');
+const powerInput = document.getElementById('power');
+const angleVal = document.getElementById('angleVal');
+const powerVal = document.getElementById('powerVal');
+const objectSelect = document.getElementById('objectSelect');
+const launchBtn = document.getElementById('launchBtn');
+const resetBtn = document.getElementById('resetBtn');
+const log = document.getElementById('log');
+const happyBar = document.getElementById('happyBar');
+const hungryBar = document.getElementById('hungryBar');
+const happyNum = document.getElementById('happyNum');
+const hungryNum = document.getElementById('hungryNum');
+
+angleInput.oninput = ()=> angleVal.textContent = angleInput.value + "°";
+powerInput.oninput = ()=> powerVal.textContent = powerInput.value;
+
+const objects = {
+  peluquin: {name:'Peluquín Ondulado', vp:15, vs:5, effect:'Salto mortal'},
+  calcetin: {name:'Calcetín Banana', vp:10, vs:10, effect:'Burbujea'},
+  sandalia: {name:'Sandalia con Pez', vp:20, vs:15, effect:'Desbloquea ladrido'},
+  gorra: {name:'Gorra Minúscula', vp:5, vs:0, effect:'Siguiente lanzamiento x2'},
+  salchicha: {name:'Salchicha Chirriante', vp:30, vs:20, effect:'Llena Hambre'}
+};
+
+/* Estado del juego */
+let state = {
+  happiness: 0, // 0-100
+  hunger: 100,  // 0-100
+  projectile: null,
+  lastEffect: null,
+  doubleNext: false,
+  running: true,
+  timeSinceLastHungerDrop:0
+};
+
+function logMsg(s){ const p = document.createElement('div'); p.textContent = s; log.prepend(p); }
+
+/* Dog (Doby) representation */
+const dog = {
+  x: W - 200,
+  y: H - 80,
+  w: 180,
+  h: 120,
+  mouth: {x: W - 200 + 30, y: H - 80 + 55, r: 36}
+};
+
+/* Projectile class */
+class Projectile {
+  constructor(x,y,vx,vy, type){
+    this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.type = type;
+    this.radius = 12;
+    this.active = true;
+  }
+  update(dt){
+    if(!this.active) return;
+    // gravity
+    this.vy += 700 * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    // ground collision
+    if(this.y > H - 20){
+      this.y = H - 20; this.vy *= -0.3; this.vx *= 0.6;
+      if(Math.abs(this.vy) < 80) this.vy = 0;
+      if(Math.abs(this.vx) < 30) this.active = false;
+    }
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = '#ffb84d';
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+    ctx.fill();
+    // small mark to differentiate object type
+    ctx.fillStyle = '#7b4dff';
+    ctx.fillRect(this.x-4, this.y-6, 8, 4);
+    ctx.restore();
+  }
+}
+
+/* Launch logic */
+launchBtn.onclick = ()=>{
+  if(state.projectile && state.projectile.active){ logMsg("Ya hay un objeto en vuelo."); return; }
+  const angDeg = Number(angleInput.value);
+  const power = Number(powerInput.value);
+  const angleRad = angDeg * Math.PI/180;
+  // starting position (player at left bottom)
+  const startX = 120, startY = H - 60;
+  let speed = power * (state.doubleNext ? 2 : 1);
+  state.doubleNext = false;
+  const vx = Math.cos(angleRad) * speed;
+  const vy = -Math.sin(angleRad) * speed;
+  const objKey = objectSelect.value;
+  state.projectile = new Projectile(startX, startY, vx, vy, objKey);
+  logMsg(`Lanzaste: ${objects[objKey].name} (ang ${angDeg}°, pot ${power})`);
+};
+
+/* Reset */
+resetBtn.onclick = resetGame;
+function resetGame(){
+  state.happiness = 0; state.hunger = 100; state.projectile = null; state.running = true; state.doubleNext=false;
+  state.lastEffect = null; happyBar.style.width = "0%"; hungryBar.style.width = "100%";
+  happyNum.textContent = "0 / 100"; hungryNum.textContent = "100 / 100";
+  log.innerHTML = ""; logMsg("Juego reiniciado. ¡A alimentar a Doby!");
+}
+
+/* Collision detection with mouth */
+function checkMouthHit(p){
+  const dx = p.x - dog.mouth.x;
+  const dy = p.y - dog.mouth.y;
+  return dx*dx + dy*dy <= (dog.mouth.r + p.radius)*(dog.mouth.r + p.radius);
+}
+
+/* Update loop */
+let lastT = performance.now();
+function update(now){
+  const dt = Math.min(0.033, (now - lastT)/1000);
+  lastT = now;
+
+  if(state.running){
+    // hunger decreases slowly
+    state.timeSinceLastHungerDrop += dt;
+    if(state.timeSinceLastHungerDrop >= 1.0){
+      state.timeSinceLastHungerDrop = 0;
+      state.hunger = Math.max(0, state.hunger - 1); // drop 1 per second
+      if(state.hunger === 0){
+        state.running = false;
+        logMsg("La barra de hambre llegó a 0. Doby está triste. Derrota.");
+      }
+    }
+  }
+
+  // update projectile
+  if(state.projectile) state.projectile.update(dt);
+
+  // check hit
+  if(state.projectile && state.projectile.active){
+    if(checkMouthHit(state.projectile)){
+      const obj = objects[state.projectile.type];
+      applyObjectEffects(obj);
+      state.projectile.active = false;
+      state.projectile = null;
+    }
+  }
+
+  // draw
+  draw();
+
+  // update UI bars
+  happyBar.style.width = Math.min(100, state.happiness) + "%";
+  hungryBar.style.width = Math.max(0, state.hunger) + "%";
+  happyNum.textContent = `${state.happiness} / 100`;
+  hungryNum.textContent = `${state.hunger} / 100`;
+
+  // check win
+  if(state.happiness >= 100 && state.running){
+    state.running = false;
+    logMsg("¡Victoria! Alcanzaste 100 puntos de Felicidad. 🎉");
+  }
+
+  requestAnimationFrame(update);
+}
+
+/* Apply object effect when hit */
+function applyObjectEffects(obj){
+  logMsg(`¡Acertaste en la boca con ${obj.name}! +${obj.vp} VP, +${obj.vs} VS — ${obj.effect}`);
+  // apply VP
+  state.happiness = Math.min(100, state.happiness + obj.vp);
+  // apply VS (hunger)
+  if(obj.name === 'Salchicha Chirriante'){
+    state.hunger = 100; // fill hunger instantly
+  } else {
+    state.hunger = Math.min(100, state.hunger + obj.vs);
+  }
+  // effects
+  state.lastEffect = obj.effect;
+  if(obj.name === 'Gorra Minúscula'){
+    state.doubleNext = true;
+    logMsg("Efecto: El próximo lanzamiento tendrá doble potencia.");
+  }
+  if(obj.name === 'Sandalia con Pez'){
+    logMsg("Nuevo Ladrido Musical desbloqueado (cosmético).");
+  }
+}
+
+/* Drawing function */
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // Sky gradient already via canvas bg, draw ground
+  ctx.fillStyle = '#6dd17b';
+  ctx.fillRect(0, H-20, W, 20);
+
+  // Player (left) simple
+  ctx.fillStyle = '#4d6aff';
+  ctx.fillRect(80, H-110, 90, 90);
+  ctx.fillStyle = '#fff';
+  ctx.fillText("Jugador", 90, H-20);
+
+  // draw trajectory preview (simple)
+  drawTrajectoryPreview();
+
+  // draw dog (Doby)
+  drawDog();
+
+  // draw projectile
+  if(state.projectile){
+    state.projectile.draw(ctx);
+  }
+
+  // HUD: show last effect text
+  if(state.lastEffect){
+    ctx.fillStyle = '#333';
+    ctx.font = '14px Arial';
+    ctx.fillText("Último efecto: " + state.lastEffect, 14, 22);
+  }
+
+  // draw mouth debug circle
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#ff6b6b';
+  ctx.beginPath();
+  ctx.arc(dog.mouth.x, dog.mouth.y, dog.mouth.r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDog(){
+  // body
+  ctx.save();
+  ctx.translate(dog.x, dog.y);
+  // body rectangle
+  ctx.fillStyle = '#2f2f2f';
+  ctx.fillRect(0, 10, dog.w, dog.h-10);
+  // head (ellipse)
+  ctx.beginPath();
+  ctx.ellipse(20, 40, 40, 32, 0, 0, Math.PI*2);
+  ctx.fillStyle = '#463f3f';
+  ctx.fill();
+  // ear
+  ctx.beginPath();
+  ctx.moveTo(0,20); ctx.lineTo(-10,0); ctx.lineTo(10,10);
+  ctx.fill();
+  // eye
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(34,30,6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(36,30,2,0,Math.PI*2); ctx.fill();
+  // mouth (open)
+  ctx.fillStyle = '#ffded1';
+  ctx.beginPath();
+  ctx.ellipse(dog.mouth.x - dog.x, dog.mouth.y - dog.y, dog.mouth.r, dog.mouth.r/1.6, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // draw tail wag when lastEffect = salto mortal (cute)
+  if(state.lastEffect && state.lastEffect.includes('Salto')){
+    ctx.save();
+    ctx.fillStyle = '#2f2f2f';
+    ctx.translate(dog.x + dog.w - 10, dog.y + 30);
+    const t = Date.now()/120;
+    ctx.rotate(Math.sin(t)*0.6);
+    ctx.fillRect(0, -6, 36, 8);
+    ctx.restore();
+  }
+}
+
+/* Trajectory preview (parabolic) */
+function drawTrajectoryPreview(){
+  const ang = Number(angleInput.value) * Math.PI/180;
+  const pwr = Number(powerInput.value);
+  const sx = 120, sy = H - 60;
+  const v0 = Math.cos(ang)*pwr, v1 = -Math.sin(ang)*pwr;
+  ctx.beginPath();
+  ctx.setLineDash([6,6]);
+  ctx.moveTo(sx, sy);
+  const steps = 60;
+  for(let i=1;i<=steps;i++){
+    const t = i * 0.05;
+    const x = sx + v0*t;
+    const y = sy + v1*t + 0.5*700*t*t;
+    ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* Start */
+resetGame();
+requestAnimationFrame(update);
+
+/* Accessibility: keyboard launch (space) */
+window.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space') { e.preventDefault(); launchBtn.click(); }
+});
+</script>
+</body>
+</html>

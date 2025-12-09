@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.example.doby" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+  <name>DobyElGoloso</name>
+  <description>Endless runner prototype Doby el Goloso</description>
+  <author email="you@example.com" href="http://example.com">You</author>
+  <content src="index.html" />
+  <access origin="*" />
+  <platform name="android" />
+</widget>
